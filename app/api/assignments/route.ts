@@ -3,6 +3,27 @@ import { prisma } from '@/lib/prisma';
 import { handleApiError } from '@/lib/http';
 import { assignmentSchema } from '@/lib/schemas';
 
+function buildDateOverlapFilter(from?: string | null, to?: string | null) {
+  const fromDate = from ? new Date(from) : undefined;
+  const toDate = to ? new Date(to) : undefined;
+
+  if (fromDate && toDate) {
+    return {
+      AND: [{ startDateTime: { lt: toDate } }, { endDateTime: { gt: fromDate } }]
+    };
+  }
+
+  if (fromDate) {
+    return { endDateTime: { gt: fromDate } };
+  }
+
+  if (toDate) {
+    return { startDateTime: { lt: toDate } };
+  }
+
+  return {};
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const from = searchParams.get('from');
@@ -10,23 +31,9 @@ export async function GET(request: NextRequest) {
   const peopleIds = searchParams.get('peopleIds')?.split(',').filter(Boolean);
   const projectIds = searchParams.get('projectIds')?.split(',').filter(Boolean);
 
-  const fromDate = from ? new Date(from) : undefined;
-  const toDate = to ? new Date(to) : undefined;
-
   const assignments = await prisma.assignment.findMany({
     where: {
-      ...(fromDate && toDate
-        ? {
-            AND: [
-              { startDateTime: { lt: toDate } },
-              { endDateTime: { gt: fromDate } }
-            ]
-          }
-        : fromDate
-          ? { endDateTime: { gt: fromDate } }
-          : toDate
-            ? { startDateTime: { lt: toDate } }
-            : {}),
+      ...buildDateOverlapFilter(from, to),
       personId: peopleIds?.length ? { in: peopleIds } : undefined,
       projectId: projectIds?.length ? { in: projectIds } : undefined
     },

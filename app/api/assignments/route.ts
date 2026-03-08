@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
   const assignments = await prisma.assignment.findMany({
     where: {
       ...buildDateOverlapFilter(from, to),
+      startDateTime: from ? { gte: new Date(from) } : undefined,
+      endDateTime: to ? { lte: new Date(to) } : undefined,
       personId: peopleIds?.length ? { in: peopleIds } : undefined,
       projectId: projectIds?.length ? { in: projectIds } : undefined
     },

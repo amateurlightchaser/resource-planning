@@ -3,6 +3,27 @@ import { prisma } from '@/lib/prisma';
 import { handleApiError } from '@/lib/http';
 import { assignmentSchema } from '@/lib/schemas';
 
+function buildDateOverlapFilter(from?: string | null, to?: string | null) {
+  const fromDate = from ? new Date(from) : undefined;
+  const toDate = to ? new Date(to) : undefined;
+
+  if (fromDate && toDate) {
+    return {
+      AND: [{ startDateTime: { lt: toDate } }, { endDateTime: { gt: fromDate } }]
+    };
+  }
+
+  if (fromDate) {
+    return { endDateTime: { gt: fromDate } };
+  }
+
+  if (toDate) {
+    return { startDateTime: { lt: toDate } };
+  }
+
+  return {};
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const from = searchParams.get('from');
@@ -12,6 +33,7 @@ export async function GET(request: NextRequest) {
 
   const assignments = await prisma.assignment.findMany({
     where: {
+      ...buildDateOverlapFilter(from, to),
       startDateTime: from ? { gte: new Date(from) } : undefined,
       endDateTime: to ? { lte: new Date(to) } : undefined,
       personId: peopleIds?.length ? { in: peopleIds } : undefined,
